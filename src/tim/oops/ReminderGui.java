@@ -24,10 +24,13 @@ public class ReminderGui implements Forwarder
 	private JList<Birthday> _peopleListBox = null;
 	private JList<Birthday> _monthListBox = null;
 
+	private JPanel _warningsPanel = null;
+	private WarningPanel _upcomingPanel = null, _recentPanel = null;
 	private BirthdaySorter _sorter = BirthdaySorter.SORT_BY_FIRST_NAME;
 	private JComboBox<String> _monthDropdown = null;
 	private JSplitPane _horizSplitPane = null;
 	private DetailsPanel _detailsPanel = null;
+	private JLabel _todayDescLabel = null;
 	private AddDialog _addEditDialog = null;
 
 
@@ -49,11 +52,9 @@ public class ReminderGui implements Forwarder
 	 */
 	public ReminderGui(Reminder inParent) {
 		_parent = inParent;
-		Date today = getToday();
-
 		// Make a GUI Frame to show the results
 		_mainFrame = new JFrame("Oops Forgot");
-		_mainFrame.add(makeContents(today, _parent.getUpcomingWarnings(), _parent.getRecentWarnings()), BorderLayout.CENTER);
+		_mainFrame.add(makeContents(), BorderLayout.CENTER);
 		_mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		// Add a window listener to close it
 		_mainFrame.addWindowListener(new WindowAdapter() {
@@ -83,6 +84,7 @@ public class ReminderGui implements Forwarder
 
 	public void launch()
 	{
+		updateDailyInformation(getToday());
 		_mainFrame.pack();
 		_mainFrame.setVisible(true);
 		sortPeople();
@@ -91,6 +93,7 @@ public class ReminderGui implements Forwarder
 		if (_parent.getBirthdays().isEmpty()) {
 			_detailsPanel.showEmptyMessage();
 		}
+		new Thread(this::dailyRefresh).start();
 	}
 
 	public void showFileNotFoundWarning(File dataFile) {
@@ -101,14 +104,18 @@ public class ReminderGui implements Forwarder
 	/**
 	 * Make the contents of the GUI Frame
 	 */
-	private Container makeContents(Date inToday, List<BirthdayWarning> inFutureList, List<BirthdayWarning> inRecentList)
+	private Container makeContents()
 	{
 		JPanel mainPanel = new JPanel();
 		mainPanel.setLayout(new BorderLayout(10, 10));
 
 		JPanel bottomPanel = new JPanel();
 		bottomPanel.setLayout(new BorderLayout());
-		bottomPanel.add(new JLabel("Today is " + inToday.getDescription()), BorderLayout.WEST);
+		_todayDescLabel = new JLabel("Today is ...");
+		JPanel labelPanel = new JPanel();
+		labelPanel.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+		labelPanel.add(_todayDescLabel);
+		bottomPanel.add(labelPanel, BorderLayout.WEST);
 		JPanel buttonPanel = new JPanel();
 		buttonPanel.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
 		JButton addButton = new JButton("Add birthday");
@@ -117,19 +124,17 @@ public class ReminderGui implements Forwarder
 		bottomPanel.add(buttonPanel, BorderLayout.EAST);
 		mainPanel.add(bottomPanel, BorderLayout.SOUTH);
 
-		JPanel _warningsPanel = new JPanel();
+		_warningsPanel = new JPanel();
 		_warningsPanel.setLayout(new BoxLayout(_warningsPanel, BoxLayout.X_AXIS));
-		WarningPanel upcomingPanel = new WarningPanel();
-		upcomingPanel.setTitle("Upcoming birthdays");
-		upcomingPanel.setWarnings(inFutureList, inToday);
-		_warningsPanel.add(upcomingPanel);
-		WarningPanel recentPanel = new WarningPanel();
-		recentPanel.setTitle("Recent birthdays");
-		recentPanel.setWarnings(inRecentList, inToday);
-		_warningsPanel.add(recentPanel);
+		_upcomingPanel = new WarningPanel();
+		_upcomingPanel.setTitle("Upcoming birthdays");
+		_warningsPanel.add(_upcomingPanel);
+		_recentPanel = new WarningPanel();
+		_recentPanel.setTitle("Recent birthdays");
+		_warningsPanel.add(_recentPanel);
 		_warningsPanel.add(Box.createHorizontalGlue());
 		mainPanel.add(_warningsPanel, BorderLayout.NORTH);
-		_warningsPanel.setVisible(upcomingPanel.hasWarnings() || recentPanel.hasWarnings());
+		_warningsPanel.setVisible(_upcomingPanel.hasWarnings() || _recentPanel.hasWarnings());
 
 		// In the middle-left pane, add the tab control
 		JTabbedPane tabs = new JTabbedPane();
@@ -288,5 +293,32 @@ public class ReminderGui implements Forwarder
 		sortPeople();
 		refreshMonthList();
 		_detailsPanel.refresh();
+	}
+
+	private void dailyRefresh() {
+		while (true) {
+			try {
+				Thread.sleep(getMillisUntilMidnight());
+			} catch (InterruptedException ie) {
+				System.out.println("Interrupted exception thrown: " + ie.getMessage());
+			}
+			updateDailyInformation(getToday());
+		}
+	}
+
+	private void updateDailyInformation(Date inToday) {
+		// System.out.println("Updating information for: " + inToday.getDescription());
+		_todayDescLabel.setText("Today is " + inToday.getDescription());
+		_upcomingPanel.setWarnings(_parent.getUpcomingWarnings(), inToday);
+		_recentPanel.setWarnings(_parent.getRecentWarnings(), inToday);
+		_warningsPanel.setVisible(_upcomingPanel.hasWarnings() || _recentPanel.hasWarnings());
+	}
+
+	private long getMillisUntilMidnight() {
+		Calendar calNow = Calendar.getInstance();
+		final long hourNow = calNow.get(Calendar.HOUR_OF_DAY);
+		final long minNow = calNow.get(Calendar.MINUTE);
+		final long secNow = calNow.get(Calendar.SECOND);
+		return (((23 - hourNow) * 60L + (59 - minNow)) * 60L + (60 - secNow)) * 1000L;
 	}
 }

@@ -13,8 +13,9 @@ public class Forgot implements Reminder
 	private File _dataFile = getDefaultDataFile();
 	private boolean _justCheck = false;
 	private final ArrayList<Birthday> _birthdays = new ArrayList<>();
-	private final ArrayList<BirthdayWarning> _upcomingWarningList = new ArrayList<>();
-	private final ArrayList<BirthdayWarning> _recentWarningList = new ArrayList<>();
+	private ArrayList<BirthdayWarning> _upcomingWarningList = null;
+	private ArrayList<BirthdayWarning> _recentWarningList = null;
+	private Date _lastCalculationDate = null;
 
 
 	/**
@@ -31,7 +32,27 @@ public class Forgot implements Reminder
 			throw e;
 		}
 		tool.readFile();
+		tool.calculateWarnings();
 		tool.showResults();
+	}
+
+	private void calculateWarnings() {
+		Calendar calToday = Calendar.getInstance();
+		Date today = new Date(calToday.get(Calendar.DATE), calToday.get(Calendar.MONTH) + 1, calToday.get(Calendar.YEAR));
+		if (today.equals(_lastCalculationDate)) {return;}
+		_upcomingWarningList = new ArrayList<>();
+		_recentWarningList = new ArrayList<>();
+		for (Birthday b : _birthdays) {
+			final int numDays = today.getDaysUntil(b.getDate());
+			if (numDays <= _advanceWarning && numDays >= 0) {
+				_upcomingWarningList.add(new BirthdayWarning(b, numDays));
+			} else if (numDays < 0 && numDays > _missedWarning) {
+				_recentWarningList.add(new BirthdayWarning(b, numDays));
+			}
+		}
+		Collections.sort(_upcomingWarningList);
+		Collections.sort(_recentWarningList);
+		_lastCalculationDate = today;
 	}
 
 	private void showResults()
@@ -58,28 +79,15 @@ public class Forgot implements Reminder
 	 */
 	private void readFile()
 	{
-		try
-		{
+		try {
 			BufferedReader reader = new BufferedReader(new FileReader(_dataFile));
-			Calendar calToday = Calendar.getInstance();
-			Date today = new Date(calToday.get(Calendar.DATE), calToday.get(Calendar.MONTH) + 1, calToday.get(Calendar.YEAR));
 			String s;
 			do
 			{
 				s = reader.readLine();
 				Birthday b = BirthdayFile.parse(s);
-				if (b != null && b.isOk())
-				{
-					// Add to list
+				if (b != null && b.isOk()) {
 					_birthdays.add(b);
-					// Calculate if it should be flagged or not
-					int numDays = today.getDaysUntil(b.getDate());
-					if (numDays <= _advanceWarning && numDays >= 0) {
-						_upcomingWarningList.add(new BirthdayWarning(b, numDays));
-					}
-					else if (numDays < 0 && numDays > _missedWarning) {
-						_recentWarningList.add(new BirthdayWarning(b, numDays));
-					}
 				}
 			}
 			while (s != null);
@@ -87,8 +95,6 @@ public class Forgot implements Reminder
 		catch (Exception e) {
 			System.out.println("oops: " + e.getMessage());
 		}
-		Collections.sort(_upcomingWarningList);
-		Collections.sort(_recentWarningList);
 	}
 
 
@@ -159,7 +165,7 @@ public class Forgot implements Reminder
 	private static void showHelp()
 	{
 		System.out.println("OopsForgot - a birthday reminder tool\n-------------------------------------");
-		System.out.println("version: 2022-01-15");
+		System.out.println("version: 2022-01-17");
 		System.out.println("Options:");
 		System.out.println("  -c --check           Only check for birthdays, don't show GUI if none found");
 		System.out.println("  -f --forward <days>  Specify the number of days forward to check");
@@ -174,11 +180,13 @@ public class Forgot implements Reminder
 
 	@Override
 	public List<BirthdayWarning> getUpcomingWarnings() {
+		calculateWarnings();
 		return _upcomingWarningList;
 	}
 
 	@Override
 	public List<BirthdayWarning> getRecentWarnings() {
+		calculateWarnings();
 		return _recentWarningList;
 	}
 
@@ -218,11 +226,13 @@ public class Forgot implements Reminder
 	@Override
 	public boolean saveAll() {
 		System.out.println("Saving to: " + _dataFile.getAbsolutePath());
-		if (_dataFile.exists() && (_dataFile.isDirectory() || !_dataFile.canWrite())) {
-			return false;
-		}
-		if (!_dataFile.renameTo(new File(_dataFile.getParent(), _dataFile.getName() + ".bak"))) {
-			return false;
+		if (_dataFile.exists()) {
+			if (_dataFile.isDirectory() || !_dataFile.canWrite()) {
+				return false;
+			}
+			if (!_dataFile.renameTo(new File(_dataFile.getParent(), _dataFile.getName() + ".bak"))) {
+				return false;
+			}
 		}
 		try (FileWriter writer = new FileWriter(_dataFile)) {
 			for (Birthday b : _birthdays) {
