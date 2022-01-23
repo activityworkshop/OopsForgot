@@ -165,7 +165,7 @@ public class Forgot implements Reminder
 	private static void showHelp()
 	{
 		System.out.println("OopsForgot - a birthday reminder tool\n-------------------------------------");
-		System.out.println("version: 2022-01-17");
+		System.out.println("version: 2022-01-23");
 		System.out.println("Options:");
 		System.out.println("  -c --check           Only check for birthdays, don't show GUI if none found");
 		System.out.println("  -f --forward <days>  Specify the number of days forward to check");
