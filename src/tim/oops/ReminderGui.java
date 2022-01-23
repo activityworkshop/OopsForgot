@@ -7,6 +7,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
@@ -87,13 +88,23 @@ public class ReminderGui implements Forwarder
 		updateDailyInformation(getToday());
 		_mainFrame.pack();
 		_mainFrame.setVisible(true);
+		_mainFrame.setIconImages(getIconImages());
 		sortPeople();
 		_monthDropdown.setSelectedIndex(getToday().getMonthNum() - 1);
 		_horizSplitPane.setDividerLocation(0.7);
 		if (_parent.getBirthdays().isEmpty()) {
 			_detailsPanel.showEmptyMessage();
 		}
-		new Thread(this::dailyRefresh).start();
+		new Thread(this::hourlyRefresh).start();
+	}
+
+	private List<? extends Image> getIconImages() {
+		ArrayList<Image> icons = new ArrayList<>();
+		String[] resolutions = {"_32", "_64", "_256"};
+		for (String r : resolutions) {
+			icons.add(new ImageIcon(ReminderGui.class.getResource("images/" + "windowicon" + r + ".png")).getImage());
+		}
+		return icons;
 	}
 
 	public void showFileNotFoundWarning(File dataFile) {
@@ -293,12 +304,13 @@ public class ReminderGui implements Forwarder
 		sortPeople();
 		refreshMonthList();
 		_detailsPanel.refresh();
+		updateDailyInformation(getToday());
 	}
 
-	private void dailyRefresh() {
+	private void hourlyRefresh() {
 		while (true) {
 			try {
-				Thread.sleep(getMillisUntilMidnight());
+				Thread.sleep(getMillisUntilNextHour());
 			} catch (InterruptedException ie) {
 				System.out.println("Interrupted exception thrown: " + ie.getMessage());
 			}
@@ -314,11 +326,10 @@ public class ReminderGui implements Forwarder
 		_warningsPanel.setVisible(_upcomingPanel.hasWarnings() || _recentPanel.hasWarnings());
 	}
 
-	private long getMillisUntilMidnight() {
+	private long getMillisUntilNextHour() {
 		Calendar calNow = Calendar.getInstance();
-		final long hourNow = calNow.get(Calendar.HOUR_OF_DAY);
 		final long minNow = calNow.get(Calendar.MINUTE);
 		final long secNow = calNow.get(Calendar.SECOND);
-		return (((23 - hourNow) * 60L + (59 - minNow)) * 60L + (60 - secNow)) * 1000L;
+		return ((59 - minNow) * 60L + (100 - secNow)) * 1000L;
 	}
 }

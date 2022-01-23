@@ -194,12 +194,14 @@ public class Forgot implements Reminder
 	public void finishAdd(Birthday b) {
 		b.setAdded();
 		_birthdays.add(b);
+		_lastCalculationDate = null;
 	}
 
 	@Override
 	public void finishDelete(Birthday b) {
 		// TODO: Add command to stack for possible undo
 		b.setDeleted();
+		_lastCalculationDate = null;
 	}
 
 	@Override
@@ -211,6 +213,7 @@ public class Forgot implements Reminder
 				break;
 			}
 		}
+		_lastCalculationDate = null;
 	}
 
 	@Override

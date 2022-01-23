@@ -8,3 +8,5 @@ Use it to quickly see:
  * who has a birthday in a given month
 
 Homepage: https://activityworkshop.net/software/oopsforgot
+
+Goldfish icon from https://freesvg.org/goldfish, in public domain
